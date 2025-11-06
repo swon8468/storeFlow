@@ -1,0 +1,321 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 헬퍼 함수: 현재 사용자의 계정 정보 가져오기
+    function getCurrentAccount() {
+      return get(/databases/$(database)/documents/accounts/$(request.auth.uid));
+    }
+    
+    function isSuperAdmin() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+             getCurrentAccount().data.role == 'superAdmin';
+    }
+    
+    function isStoreAdmin() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+             getCurrentAccount().data.role == 'storeAdmin';
+    }
+    
+    function isStaff() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+             getCurrentAccount().data.role == 'staff';
+    }
+    
+    function getCurrentStoreId() {
+      return exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) ?
+             getCurrentAccount().data.storeId : null;
+    }
+    
+    function hasStoreId() {
+      return exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+             getCurrentAccount().data.storeId != null;
+    }
+
+    // Accounts collection
+    // 인증된 사용자는 자신의 계정 정보를 읽을 수 있어야 함 (로그인 시 필요)
+    // superAdmin은 모든 계정을 읽을 수 있음
+    // storeAdmin은 자신의 storeId에 해당하는 계정을 읽을 수 있음
+    // 로그인 전에도 사원 계정 조회 가능 (사원 로그인을 위해)
+    match /accounts/{accountId} {
+      // 읽기: 
+      // 1. 로그인 전 사원 계정 조회 (사원 로그인을 위해 - storeId, username, role로 쿼리)
+      // 2. 자신의 계정 정보 (로그인 시 필요)
+      // 3. superAdmin은 모든 계정 읽기 가능
+      // 4. storeAdmin은 자신의 storeId에 해당하는 계정 읽기 가능
+      // 5. staff는 자신의 storeId에 해당하는 계정 읽기 가능 (예약 관리에서 담당자 선택을 위해)
+      allow read: if (
+        // 로그인 전 사원 계정 조회 허용 (role이 staff이고 storeId가 있는 경우만)
+        (resource.data.role == 'staff' &&
+         resource.data.keys().hasAll(['storeId', 'username', 'role'])) ||
+        // 인증된 사용자
+        (request.auth != null && (
+          request.auth.uid == accountId ||
+          isSuperAdmin() ||
+          (isStoreAdmin() &&
+           hasStoreId() &&
+           resource.data.keys().hasAll(['storeId']) &&
+           resource.data.storeId is string &&
+           resource.data.storeId == getCurrentStoreId()) ||
+          (isStaff() &&
+           hasStoreId() &&
+           resource.data.keys().hasAll(['storeId']) &&
+           resource.data.storeId is string &&
+           resource.data.storeId == getCurrentStoreId())
+        )) ||
+        // 사원 세션 허용 (storeId로 필터링된 쿼리만)
+        (resource.data.keys().hasAll(['storeId']) &&
+         resource.data.storeId is string)
+      );
+      
+      // 생성: superAdmin 또는 storeAdmin (사원 계정 생성)
+      allow create: if request.auth != null && (
+        isSuperAdmin() ||
+        (isStoreAdmin() &&
+         request.resource.data.role == 'staff' &&
+         request.resource.data.storeId == getCurrentStoreId())
+      );
+      
+      // 수정: 
+      // 1. 자신의 계정만 (role과 storeId는 변경 불가)
+      // 2. storeAdmin은 자신의 storeId에 해당하는 사원 계정 수정 가능
+      allow update: if request.auth != null && (
+        (request.auth.uid == accountId &&
+         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'storeId']) ||
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.storeId == resource.data.storeId)) ||
+        (isStoreAdmin() &&
+         resource.data.role == 'staff' &&
+         resource.data.storeId == getCurrentStoreId() &&
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'storeId']))
+      );
+      
+      // 삭제: 
+      // 1. superAdmin만 삭제 가능
+      // 2. storeAdmin은 자신의 storeId에 해당하는 사원 계정 삭제 가능
+      allow delete: if request.auth != null && (
+        isSuperAdmin() ||
+        (isStoreAdmin() &&
+         resource.data.role == 'staff' &&
+         resource.data.storeId == getCurrentStoreId())
+      );
+    }
+
+    // Stores collection
+    // 로그인 전에도 매장 목록을 조회할 수 있어야 함 (매장 선택 화면에서 필요)
+    match /stores/{storeId} {
+      allow read: if true; // 모든 사용자가 읽기 가능 (로그인 전 매장 선택을 위해)
+      // 초기 설정을 위해 모든 인증된 사용자가 생성/수정/삭제 가능 (추후 보안 강화 필요)
+      allow create, update, delete: if request.auth != null;
+    }
+
+    // Reservations collection
+    match /reservations/{reservationId} {
+      // read는 개별 문서 읽기와 쿼리 모두 포함
+      // 사원은 Firebase Auth 없이도 접근 가능 (storeId로 필터링)
+      allow read: if (request.auth != null && 
+                      exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                      (isSuperAdmin() ||
+                       (hasStoreId() && 
+                        resource.data.keys().hasAll(['storeId']) &&
+                        resource.data.storeId == getCurrentStoreId()))) ||
+                   // 사원 세션 허용 (storeId로 필터링된 쿼리만)
+                   (resource.data.keys().hasAll(['storeId']) &&
+                    resource.data.storeId is string);
+      allow create: if (request.auth != null && 
+                        exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                        (isSuperAdmin() ||
+                         (hasStoreId() && 
+                          request.resource.data.keys().hasAll(['storeId']) &&
+                          request.resource.data.storeId == getCurrentStoreId()))) ||
+                     // 사원 세션 허용
+                     (request.resource.data.keys().hasAll(['storeId']) &&
+                      request.resource.data.storeId is string);
+      allow update, delete: if (request.auth != null && 
+                                exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                                (isSuperAdmin() ||
+                                 (hasStoreId() && 
+                                  resource.data.keys().hasAll(['storeId']) &&
+                                  resource.data.storeId == getCurrentStoreId()))) ||
+                             // 사원 세션 허용
+                             (resource.data.keys().hasAll(['storeId']) &&
+                              resource.data.storeId is string);
+    }
+
+    // ReservationSources collection
+    match /reservationSources/{sourceId} {
+      allow read: if request.auth != null && 
+                   exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                   (isSuperAdmin() ||
+                    (hasStoreId() && resource.data.storeId == getCurrentStoreId()));
+      allow create, update, delete: if request.auth != null && 
+                                      exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                                      (isSuperAdmin() ||
+                                       (hasStoreId() && request.resource.data.storeId == getCurrentStoreId()));
+    }
+
+    // PrepayCustomers collection
+    match /prepayCustomers/{customerId} {
+      allow read: if (request.auth != null && 
+                       exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                       (isSuperAdmin() ||
+                        (hasStoreId() && 
+                         resource.data.keys().hasAll(['storeId']) &&
+                         resource.data.storeId == getCurrentStoreId()))) ||
+                   // 사원 세션 허용
+                   (resource.data.keys().hasAll(['storeId']) &&
+                    resource.data.storeId is string);
+      allow create, update: if (request.auth != null && 
+                                 exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                                 (isSuperAdmin() ||
+                                  (hasStoreId() && 
+                                   request.resource.data.keys().hasAll(['storeId']) &&
+                                   request.resource.data.storeId == getCurrentStoreId()))) ||
+                             // 사원 세션 허용
+                             (request.resource.data.keys().hasAll(['storeId']) &&
+                              request.resource.data.storeId is string);
+      allow delete: if (request.auth != null && 
+                         exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                         (isSuperAdmin() ||
+                          (hasStoreId() && 
+                           resource.data.keys().hasAll(['storeId']) &&
+                           resource.data.storeId == getCurrentStoreId() &&
+                           isStoreAdmin()))) ||
+                     // 사원은 삭제 불가 (관리자만)
+                     false;
+    }
+
+    // PrepayTransactions collection
+    match /prepayTransactions/{transactionId} {
+      allow read: if (request.auth != null && 
+                       exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                       (isSuperAdmin() ||
+                        (hasStoreId() && 
+                         resource.data.keys().hasAll(['storeId']) &&
+                         resource.data.storeId == getCurrentStoreId()))) ||
+                   // 사원 세션 허용
+                   (resource.data.keys().hasAll(['storeId']) &&
+                    resource.data.storeId is string);
+      allow create: if (request.auth != null && 
+                         exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                         (isSuperAdmin() ||
+                          (hasStoreId() && request.resource.data.storeId == getCurrentStoreId() &&
+                           (isStoreAdmin() || isStaff())))) ||
+                     // 사원 세션 허용
+                     (request.resource.data.keys().hasAll(['storeId']) &&
+                      request.resource.data.storeId is string);
+      allow update, delete: if request.auth != null && 
+                             exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                             (isSuperAdmin() ||
+                              (hasStoreId() && resource.data.storeId == getCurrentStoreId() && isStoreAdmin()));
+    }
+
+    // Contracts collection
+    match /contracts/{contractId} {
+      allow read: if request.auth != null && 
+                   exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                   (isSuperAdmin() ||
+                    (hasStoreId() && resource.data.storeId == getCurrentStoreId()));
+      allow create, update: if request.auth != null && 
+                             exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                             (isSuperAdmin() ||
+                              (hasStoreId() && request.resource.data.storeId == getCurrentStoreId()));
+      allow delete: if request.auth != null && 
+                     exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                     (isSuperAdmin() ||
+                      (hasStoreId() && resource.data.storeId == getCurrentStoreId() && isStoreAdmin()));
+    }
+
+    // Timesheets collection
+    match /timesheets/{timesheetId} {
+      allow read: if request.auth != null && 
+                   exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                   (isSuperAdmin() ||
+                    (hasStoreId() && resource.data.storeId == getCurrentStoreId()));
+      allow create: if request.auth != null && 
+                     exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                     (isSuperAdmin() ||
+                      (hasStoreId() && request.resource.data.storeId == getCurrentStoreId() &&
+                       (request.resource.data.staffId == request.auth.uid ||
+                        isStoreAdmin())));
+      allow update: if request.auth != null && 
+                     exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                     (isSuperAdmin() ||
+                      (hasStoreId() && resource.data.storeId == getCurrentStoreId() &&
+                       (resource.data.staffId == request.auth.uid ||
+                        isStoreAdmin())));
+      allow delete: if request.auth != null && 
+                     exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                     (isSuperAdmin() ||
+                      (hasStoreId() && resource.data.storeId == getCurrentStoreId() && isStoreAdmin()));
+    }
+
+    // PayrollRules collection
+    match /payrollRules/{ruleId} {
+      allow read: if request.auth != null && 
+                   exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                   (isSuperAdmin() ||
+                    (hasStoreId() && resource.data.storeId == getCurrentStoreId()));
+      allow create, update, delete: if request.auth != null && 
+                                      exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                                      (isSuperAdmin() ||
+                                       (isStoreAdmin() &&
+                                        hasStoreId() &&
+                                        request.resource.data.storeId == getCurrentStoreId()));
+    }
+
+    // Payrolls collection
+    match /payrolls/{payrollId} {
+      allow read: if request.auth != null && 
+                   exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                   (isSuperAdmin() ||
+                    (hasStoreId() && resource.data.storeId == getCurrentStoreId()));
+      allow create, update, delete: if request.auth != null && 
+                                      exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                                      (isSuperAdmin() ||
+                                       (isStoreAdmin() &&
+                                        hasStoreId() &&
+                                        request.resource.data.storeId == getCurrentStoreId()));
+    }
+
+    // Payslips collection
+    match /payslips/{payslipId} {
+      allow read: if request.auth != null && 
+                   exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                   (isSuperAdmin() ||
+                    (hasStoreId() && resource.data.storeId == getCurrentStoreId() &&
+                     (resource.data.staffId == request.auth.uid ||
+                      isStoreAdmin())));
+      allow create, update, delete: if request.auth != null && 
+                                      exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                                      (isSuperAdmin() ||
+                                       (isStoreAdmin() &&
+                                        hasStoreId() &&
+                                        request.resource.data.storeId == getCurrentStoreId()));
+    }
+
+    // Templates collection
+    match /templates/{templateId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && 
+                                      exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                                      isSuperAdmin();
+    }
+
+    // AuditLogs collection
+    match /auditLogs/{logId} {
+      allow read: if request.auth != null && 
+                   exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                   (isSuperAdmin() ||
+                    (hasStoreId() && resource.data.storeId == getCurrentStoreId()));
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+                             exists(/databases/$(database)/documents/accounts/$(request.auth.uid)) &&
+                             isSuperAdmin();
+    }
+  }
+}
