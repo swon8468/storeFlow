@@ -26,7 +26,17 @@ export function Reservations() {
   const [allCustomerReservations, setAllCustomerReservations] = useState([]); // 고객별 통계용 전체 예약
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedReservationForStatus, setSelectedReservationForStatus] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
   const unsubscribeRefs = useRef([]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (storeId) {
@@ -537,16 +547,24 @@ export function Reservations() {
         }
       >
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginBottom: '16px',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
             <Button
               icon={<LeftOutlined />}
               onClick={() => {
                 setSelectedDate(selectedDate.subtract(1, 'month'));
               }}
+              size={isMobile ? 'small' : 'default'}
             >
-              이전 달
+              {isMobile ? '이전' : '이전 달'}
             </Button>
-            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+            <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold' }}>
               {selectedDate.format('YYYY년 MM월')}
             </div>
             <Button
@@ -554,8 +572,9 @@ export function Reservations() {
               onClick={() => {
                 setSelectedDate(selectedDate.add(1, 'month'));
               }}
+              size={isMobile ? 'small' : 'default'}
             >
-              다음 달
+              {isMobile ? '다음' : '다음 달'}
             </Button>
           </div>
           <div style={{ position: 'relative' }}>
@@ -633,6 +652,7 @@ export function Reservations() {
           loading={loading}
           rowKey="id"
           pagination={false}
+          scroll={{ x: 'max-content' }}
           locale={{
             emptyText: reservations.length === 0 && !loading ? '데이터 없음' : undefined,
           }}
@@ -690,7 +710,7 @@ export function Reservations() {
             label="예약 시간"
             required
           >
-            <div style={{ display: 'flex', gap: '24px' }}>
+            <div style={{ display: 'flex', gap: '24px', flexDirection: isMobile ? 'column' : 'row' }}>
               <Form.Item
                 name="reservationHour"
                 rules={[{ required: true, message: '시간을 선택해주세요.' }]}
@@ -700,7 +720,7 @@ export function Reservations() {
               >
                 <div>
                   <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>시간</div>
-                  <div style={{ 
+                  <div className="time-selection-buttons" style={{ 
                     display: 'flex', 
                     flexWrap: 'wrap', 
                     gap: '8px',
@@ -741,7 +761,7 @@ export function Reservations() {
               >
                 <div>
                   <div style={{ marginBottom: '8px', fontWeight: 'bold' }}>분</div>
-                  <div style={{ 
+                  <div className="time-selection-buttons" style={{ 
                     display: 'flex', 
                     flexWrap: 'wrap', 
                     gap: '8px',

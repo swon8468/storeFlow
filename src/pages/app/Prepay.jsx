@@ -19,7 +19,17 @@ export function Prepay() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [form] = Form.useForm();
   const [transactionForm] = Form.useForm();
+  const [isMobile, setIsMobile] = useState(false);
   const unsubscribeRefs = useRef([]);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (storeId) {
@@ -356,18 +366,23 @@ export function Prepay() {
             value={selectedKeys[0]}
             onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
             onPressEnter={() => confirm()}
-            style={{ width: 188, marginBottom: 8, display: 'block' }}
+            style={{ 
+              width: isMobile ? '100%' : 188, 
+              marginBottom: 8, 
+              display: 'block',
+              maxWidth: '100%'
+            }}
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
             <Button
               type="primary"
               onClick={() => confirm()}
               size="small"
-              style={{ width: 90 }}
+              style={{ flex: 1 }}
             >
               검색
             </Button>
-            <Button onClick={() => clearFilters()} size="small" style={{ width: 90 }}>
+            <Button onClick={() => clearFilters()} size="small" style={{ flex: 1 }}>
               초기화
             </Button>
           </div>
@@ -406,18 +421,23 @@ export function Prepay() {
             value={selectedKeys[0]}
             onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
             onPressEnter={() => confirm()}
-            style={{ width: 188, marginBottom: 8, display: 'block' }}
+            style={{ 
+              width: isMobile ? '100%' : 188, 
+              marginBottom: 8, 
+              display: 'block',
+              maxWidth: '100%'
+            }}
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
             <Button
               type="primary"
               onClick={() => confirm()}
               size="small"
-              style={{ width: 90 }}
+              style={{ flex: 1 }}
             >
               검색
             </Button>
-            <Button onClick={() => clearFilters()} size="small" style={{ width: 90 }}>
+            <Button onClick={() => clearFilters()} size="small" style={{ flex: 1 }}>
               초기화
             </Button>
           </div>
@@ -598,6 +618,7 @@ export function Prepay() {
           columns={customerColumns}
           loading={loading}
           rowKey="id"
+          scroll={{ x: 'max-content' }}
         />
       </Card>
 
@@ -717,6 +738,7 @@ export function Prepay() {
           loading={loading}
           rowKey="id"
           pagination={{ pageSize: 10 }}
+          scroll={{ x: 'max-content' }}
         />
       </Modal>
     </div>
