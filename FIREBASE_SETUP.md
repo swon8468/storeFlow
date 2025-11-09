@@ -108,6 +108,23 @@ Vite는 다음 순서로 환경 변수를 로드합니다:
 - ✅ GitHub Actions를 사용하는 경우 Secrets를 통해 프로덕션 설정을 관리합니다.
 - ✅ 로컬에서 개발할 때는 `.env` 파일만 있으면 됩니다.
 
+## 🔒 보안 중요 사항
+
+**Firebase API 키는 클라이언트 측 JavaScript에 포함됩니다.** 이는 정상적인 동작이지만, 다음 보안 조치가 **필수**입니다:
+
+1. **Firebase Console에서 API 키 제한사항 설정**:
+   - HTTP 리퍼러 제한: `https://storeflow.kr/*`만 허용
+   - API 제한: 필요한 Firebase API만 허용
+   - 자세한 내용은 `SECURITY_FIX.md` 참고
+
+2. **Firestore/Storage 보안 규칙 사용**:
+   - API 키만으로는 데이터 접근 불가
+   - 인증된 사용자만 접근 가능하도록 규칙 설정
+
+3. **빌드 파일 관리**:
+   - `dist` 폴더는 Git에 커밋하지 않음
+   - `gh-pages` 브랜치에는 배포용 빌드만 포함
+
 ## Firebase 프로젝트별 설정
 
 ### 개발용 프로젝트 (`storeflow-dev`)

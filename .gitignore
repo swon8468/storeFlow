@@ -33,10 +33,14 @@ dist-ssr
 src/assets/firebaseConfig.js
 
 # Build outputs
-dist
-dist-ssr
-build
+dist/
+dist-ssr/
+build/
 *.local
+
+# 빌드된 JavaScript 파일 (API 키 포함 가능)
+**/assets/index-*.js
+**/assets/*.js.map
 
 # Firebase
 .firebase/
