@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Card, Tabs, Input, Button, Select, message, Spin } from 'antd';
-import { ShopOutlined, UserOutlined, LockOutlined, MailOutlined } from '@ant-design/icons';
+import { ShopOutlined, UserOutlined, LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons';
 import { getStores, loginWithStore, loginStoreAdmin } from '../../services/authService';
 
 const { TabPane } = Tabs;
@@ -243,6 +243,17 @@ export function StoreSelect() {
             </div>
           </TabPane>
         </Tabs>
+        <div style={{ 
+          marginTop: '20px', 
+          paddingTop: '20px', 
+          borderTop: '1px solid #f0f0f0',
+          textAlign: 'center'
+        }}>
+          <Link to="/auth/super" style={{ color: '#1890ff', textDecoration: 'none' }}>
+            <SafetyOutlined style={{ marginRight: '4px' }} />
+            최고관리자 로그인
+          </Link>
+        </div>
       </Card>
     </div>
   );
