@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
+    "deploy:main": "npm run build && gh-pages -d dist",
     "firebase": "firebase",
     "firebase:login": "firebase login",
     "firebase:init": "firebase init",
