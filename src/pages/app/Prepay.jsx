@@ -403,17 +403,6 @@ export function Prepay() {
       title: '연락처',
       dataIndex: 'phone',
       key: 'phone',
-      render: (phone) => {
-        if (!phone) return '-';
-        // 000-0000-0000 형식으로 변환
-        const cleaned = phone.replace(/-/g, '');
-        if (cleaned.length === 11) {
-          return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7)}`;
-        } else if (cleaned.length === 10) {
-          return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-        }
-        return phone;
-      },
       filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
         <div style={{ padding: 8 }}>
           <Input
@@ -445,14 +434,25 @@ export function Prepay() {
       ),
       onFilter: (value, record) =>
         record.phone?.includes(value),
-      render: (text, record) => (
-        <a
-          onClick={() => handleViewHistory(record)}
-          style={{ cursor: 'pointer', color: '#1890ff' }}
-        >
-          {text}
-        </a>
-      ),
+      render: (phone, record) => {
+        if (!phone) return '-';
+        // 000-0000-0000 형식으로 변환
+        const cleaned = phone.replace(/-/g, '');
+        let formattedPhone = phone;
+        if (cleaned.length === 11) {
+          formattedPhone = `${cleaned.slice(0, 3)}-${cleaned.slice(3, 7)}-${cleaned.slice(7)}`;
+        } else if (cleaned.length === 10) {
+          formattedPhone = `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+        }
+        return (
+          <a
+            onClick={() => handleViewHistory(record)}
+            style={{ cursor: 'pointer', color: '#1890ff' }}
+          >
+            {formattedPhone}
+          </a>
+        );
+      },
     },
     {
       title: '잔액',
