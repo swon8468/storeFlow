@@ -163,7 +163,8 @@ export function Layout({ children }) {
           marginLeft: isMobile ? 0 : 200, 
           width: isMobile ? '100%' : 'calc(100% - 200px)', 
           minHeight: '100vh',
-          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         <Header
@@ -178,41 +179,61 @@ export function Layout({ children }) {
             top: 0,
             zIndex: 99,
             boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+            height: '64px',
+            lineHeight: '64px',
+            flexShrink: 0,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0 }}>
             {isMobile && (
               <Button
                 type="text"
                 icon={<MenuOutlined />}
                 onClick={() => setMobileMenuOpen(true)}
-                style={{ fontSize: '18px' }}
+                style={{ fontSize: '18px', flexShrink: 0 }}
               />
             )}
-            <div style={{ fontSize: isMobile ? '16px' : '18px', fontWeight: 'bold' }}>
+            <div style={{ 
+              fontSize: isMobile ? '16px' : '18px', 
+              fontWeight: 'bold',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+              minWidth: 0,
+            }}>
               {account?.storeName || 'storeFlow'}
             </div>
           </div>
-          <Dropdown
-            menu={{
-              items: userMenuItems,
-              onClick: handleMenuClick,
-            }}
-            placement="bottomRight"
-          >
-            <Button type="text" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: isMobile ? '4px 8px' : '4px 12px' }}>
-              <Avatar icon={<UserOutlined />} size={isMobile ? 'small' : 'default'} />
-              {!isMobile && <span>{account?.name || account?.username || '사용자'}</span>}
-            </Button>
-          </Dropdown>
+          <div style={{ flexShrink: 0 }}>
+            <Dropdown
+              menu={{
+                items: userMenuItems,
+                onClick: handleMenuClick,
+              }}
+              placement="bottomRight"
+            >
+              <Button type="text" style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '8px', 
+                padding: isMobile ? '4px 8px' : '4px 12px',
+                height: '100%',
+              }}>
+                <Avatar icon={<UserOutlined />} size={isMobile ? 'small' : 'default'} />
+                {!isMobile && <span style={{ whiteSpace: 'nowrap' }}>{account?.name || account?.username || '사용자'}</span>}
+              </Button>
+            </Dropdown>
+          </div>
         </Header>
         <Content style={{ 
           margin: isMobile ? '16px 8px' : '24px', 
           padding: isMobile ? '16px' : '24px', 
           background: 'transparent',
-          minHeight: 'calc(100vh - 64px)',
+          flex: 1,
           width: '100%',
           overflow: 'auto',
+          minHeight: 0,
         }}>
           {children}
         </Content>

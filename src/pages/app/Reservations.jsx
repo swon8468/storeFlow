@@ -272,6 +272,7 @@ export function Reservations() {
   const handleDelete = async (id) => {
     Modal.confirm({
       title: '예약을 삭제하시겠습니까?',
+      content: '삭제된 예약은 복구할 수 없습니다.',
       onOk: async () => {
         try {
           // 삭제 전 예약 정보 확인 (storeId 검증)
@@ -291,7 +292,7 @@ export function Reservations() {
           
           await deleteDocument('reservations', id);
           message.success('예약이 삭제되었습니다.');
-          loadReservations();
+          // 실시간 구독이 자동으로 업데이트하므로 별도 로드 불필요
         } catch (error) {
           console.error('예약 삭제 오류:', error);
           console.error('오류 상세:', {
@@ -453,7 +454,9 @@ export function Reservations() {
         };
         const statusInfo = status && status !== 'pending' ? statusMap[status] : null;
         const isStoreAdmin = permissions.isStoreAdmin;
+        // 매장 관리자는 모든 상태의 예약을 수정/삭제 가능
         const canEdit = permissions.canEditReservations && (status === 'pending' || !status || isStoreAdmin);
+        const canDelete = permissions.canEditReservations && (status === 'pending' || !status || isStoreAdmin);
         
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -462,27 +465,30 @@ export function Reservations() {
             ) : (
               <span style={{ color: '#999' }}>-</span>
             )}
-            {canEdit && (
+            {(canEdit || canDelete) && (
               <div>
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<EditOutlined />}
-                  onClick={() => handleEdit(record)}
-                  disabled={status && status !== 'pending' && !isStoreAdmin}
-                >
-                  수정
-                </Button>
-                <Button
-                  type="link"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleDelete(record.id)}
-                  disabled={status && status !== 'pending' && !isStoreAdmin}
-                >
-                  삭제
-                </Button>
+                {canEdit && (
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<EditOutlined />}
+                    onClick={() => handleEdit(record)}
+                    disabled={status && status !== 'pending' && !isStoreAdmin}
+                  >
+                    수정
+                  </Button>
+                )}
+                {canDelete && (
+                  <Button
+                    type="link"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDelete(record.id)}
+                  >
+                    삭제
+                  </Button>
+                )}
               </div>
             )}
           </div>
